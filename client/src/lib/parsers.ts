@@ -103,20 +103,30 @@ export async function parseShopifyData(file: File): Promise<BaseProduct[]> {
       header: true,
       complete: (results) => {
         try {
-          const products = results.data.map((row: any) => ({
-            id: row["Variant SKU"] || row["ID"] || "",
-            title: row["Title"] || "",
-            description: row["Body (HTML)"] || "",
-            price: parseFloat(row["Variant Price"] || "0"),
-            currency: "USD", // Shopify exports don't include currency
-            quantity: parseInt(row["Variant Inventory Qty"] || "0"),
-            images: row["Image Src"]?.split(",").filter(Boolean) || [],
-            category: row["Type"] || "",
-            weight: parseFloat(row["Variant Weight"] || "0"),
-            weightUnit: row["Variant Weight Unit"] || "kg",
-            dimensions: row["Variant Dimensions"],
-            dimensionUnit: "cm"
-          }));
+          const products = results.data
+            .filter((row: any) => row["Handle"] || row["Title"]) // Filter out empty rows
+            .map((row: any) => {
+              // Convert grams to kg for weight
+              const weightInGrams = parseFloat(row["Variant Grams"] || "0");
+              const weightInKg = weightInGrams / 1000;
+
+              return {
+                id: row["Variant SKU"] || row["Handle"] || "",
+                title: row["Title"] || "",
+                description: row["Body (HTML)"] || "",
+                price: parseFloat(row["Variant Price"] || "0"),
+                currency: "USD", // Default to USD
+                quantity: parseInt(row["Variant Inventory Qty"] || "0"),
+                images: (row["Image Src"] || "").split(",").filter(Boolean).map((url: string) => url.trim()),
+                category: row["Type"] || row["Product Category"] || "",
+                weight: weightInKg,
+                weightUnit: "kg", // Convert to kg standard
+                dimensions: undefined, // Shopify export doesn't include dimensions
+                dimensionUnit: "cm" // Default to cm
+              };
+            })
+            .filter((product: BaseProduct) => product.title && product.id); // Filter out invalid products
+
           resolve(products);
         } catch (error) {
           reject(new Error("Failed to parse Shopify data: " + (error as Error).message));
