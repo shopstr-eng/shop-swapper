@@ -24,25 +24,20 @@ export async function parseAmazonData(file: File): Promise<BaseProduct[]> {
       header: true,
       complete: (results) => {
         try {
-          const products = results.data
-            .filter((row: any) => row["sku"] || row["asin"] || row["ASIN"] || row["SKU"])
-            .map((row: any) => ({
-              id: row["sku"] || row["asin"] || row["ASIN"] || row["SKU"] || "",
-              title: row["item-name"] || row["product-name"] || row["title"] || row["Title"] || "",
-              description: row["item-description"] || row["product-description"] || row["description"] || row["Description"] || "",
-              price: parseFloat(row["price"] || row["Price"] || row["list-price"] || "0"),
-              currency: row["currency"] || "USD",
-              quantity: parseInt(row["quantity"] || row["Quantity"] || row["stock-level"] || "0"),
-              images: (row["image-url"] || row["image-urls"] || row["images"] || "")
-                .split(/[,|]/)
-                .map((url: string) => url.trim())
-                .filter(Boolean),
-              category: row["product-category"] || row["category"] || row["Category"] || "",
-              weight: parseFloat(row["item-weight"] || row["weight"] || row["Weight"] || "0"),
-              weightUnit: row["weight-unit"] || "kg",
-              dimensions: row["item-dimensions"] || row["dimensions"] || row["Dimensions"],
-              dimensionUnit: row["dimension-unit"] || "cm"
-            }));
+          const products = results.data.map((row: any) => ({
+            id: row["sku"] || row["asin"] || "",
+            title: row["item-name"] || row["product-name"] || "",
+            description: row["item-description"] || row["product-description"] || "",
+            price: parseFloat(row["price"] || "0"),
+            currency: "USD",
+            quantity: parseInt(row["quantity"] || "0"),
+            images: row["image-url"]?.split(",").filter(Boolean) || [],
+            category: row["product-category"],
+            weight: parseFloat(row["item-weight"] || "0"),
+            weightUnit: "kg",
+            dimensions: row["item-dimensions"],
+            dimensionUnit: "cm"
+          }));
           resolve(products);
         } catch (error) {
           reject(new Error("Failed to parse Amazon data: " + (error as Error).message));
@@ -108,36 +103,20 @@ export async function parseShopifyData(file: File): Promise<BaseProduct[]> {
       header: true,
       complete: (results) => {
         try {
-          const products = results.data
-            .filter((row: any) => row["Handle"] || row["Title"]) // Filter out empty rows
-            .map((row: any) => {
-              // Collect all image URLs
-              const images = [];
-              if (row["Image Src"]) images.push(row["Image Src"]);
-              if (row["Image Src 2"]) images.push(row["Image Src 2"]);
-              if (row["Image Src 3"]) images.push(row["Image Src 3"]);
-
-              // Get additional images from the Image column if it exists
-              const additionalImages = row["Images"] || row["Additional Images"];
-              if (additionalImages) {
-                images.push(...additionalImages.split(/[,|]/).map((url: string) => url.trim()).filter(Boolean));
-              }
-
-              return {
-                id: row["Variant SKU"] || row["ID"] || row["Product ID"] || "",
-                title: row["Title"] || "",
-                description: row["Body (HTML)"] || row["Description"] || "",
-                price: parseFloat(row["Variant Price"] || row["Price"] || "0"),
-                currency: row["Currency"] || "USD", // Shopify exports might include currency
-                quantity: parseInt(row["Variant Inventory Qty"] || row["Inventory"] || "0"),
-                images: images.filter(Boolean),
-                category: row["Type"] || row["Product Type"] || row["Category"] || "",
-                weight: parseFloat(row["Variant Weight"] || row["Weight"] || "0"),
-                weightUnit: row["Variant Weight Unit"] || row["Weight Unit"] || "kg",
-                dimensions: row["Variant Dimensions"] || `${row["Length"] || ""}x${row["Width"] || ""}x${row["Height"] || ""}`,
-                dimensionUnit: row["Dimension Unit"] || "cm"
-              };
-            });
+          const products = results.data.map((row: any) => ({
+            id: row["Variant SKU"] || row["ID"] || "",
+            title: row["Title"] || "",
+            description: row["Body (HTML)"] || "",
+            price: parseFloat(row["Variant Price"] || "0"),
+            currency: "USD", // Shopify exports don't include currency
+            quantity: parseInt(row["Variant Inventory Qty"] || "0"),
+            images: row["Image Src"]?.split(",").filter(Boolean) || [],
+            category: row["Type"] || "",
+            weight: parseFloat(row["Variant Weight"] || "0"),
+            weightUnit: row["Variant Weight Unit"] || "kg",
+            dimensions: row["Variant Dimensions"],
+            dimensionUnit: "cm"
+          }));
           resolve(products);
         } catch (error) {
           reject(new Error("Failed to parse Shopify data: " + (error as Error).message));
