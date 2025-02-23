@@ -23,23 +23,27 @@ export async function parseAmazonData(file: File): Promise<BaseProduct[]> {
     Papa.parse(file, {
       header: true,
       complete: (results) => {
-        const products = results.data.map((row: any) => ({
-          id: row["sku"] || row["asin"],
-          title: row["item-name"] || row["product-name"],
-          description: row["item-description"] || row["product-description"],
-          price: parseFloat(row["price"]),
-          currency: "USD",
-          quantity: parseInt(row["quantity"] || "0"),
-          images: row["image-url"]?.split(",") || [],
-          category: row["product-category"],
-          weight: parseFloat(row["item-weight"] || "0"),
-          weightUnit: "kg",
-          dimensions: row["item-dimensions"],
-          dimensionUnit: "cm"
-        }));
-        resolve(products);
+        try {
+          const products = results.data.map((row: any) => ({
+            id: row["sku"] || row["asin"] || "",
+            title: row["item-name"] || row["product-name"] || "",
+            description: row["item-description"] || row["product-description"] || "",
+            price: parseFloat(row["price"] || "0"),
+            currency: "USD",
+            quantity: parseInt(row["quantity"] || "0"),
+            images: row["image-url"]?.split(",").filter(Boolean) || [],
+            category: row["product-category"],
+            weight: parseFloat(row["item-weight"] || "0"),
+            weightUnit: "kg",
+            dimensions: row["item-dimensions"],
+            dimensionUnit: "cm"
+          }));
+          resolve(products);
+        } catch (error) {
+          reject(new Error("Failed to parse Amazon data: " + (error as Error).message));
+        }
       },
-      error: (error) => reject(error)
+      error: (error) => reject(new Error("Failed to parse CSV: " + error.message))
     });
   });
 }
@@ -49,23 +53,46 @@ export async function parseEbayData(file: File): Promise<BaseProduct[]> {
     Papa.parse(file, {
       header: true,
       complete: (results) => {
-        const products = results.data.map((row: any) => ({
-          id: row["Item ID"] || row["Custom Label"],
-          title: row["Title"],
-          description: row["Description"],
-          price: parseFloat(row["Start Price"]),
-          currency: row["Currency"],
-          quantity: parseInt(row["Quantity"] || "0"),
-          images: row["Picture URL"]?.split("|") || [],
-          category: row["Category Name"],
-          weight: parseFloat(row["Package Weight"] || "0"),
-          weightUnit: row["Weight Unit"] || "kg",
-          dimensions: `${row["Package Length"]}x${row["Package Width"]}x${row["Package Height"]}`,
-          dimensionUnit: row["Dimension Unit"] || "cm"
-        }));
-        resolve(products);
+        try {
+          const products = results.data
+            .filter((row: any) => row["SKU"] || row["Title"]) // Filter out empty rows
+            .map((row: any) => {
+              // Get all image URLs
+              const imageUrls = [];
+              for (let i = 1; i <= 12; i++) {
+                const url = row[`Picture URL ${i}`];
+                if (url && url.trim() !== '') {
+                  imageUrls.push(url);
+                }
+              }
+
+              // Handle dimensions
+              const length = row["Length"] || "0";
+              const width = row["Width"] || "0";
+              const height = row["Height"] || "0";
+              const dimensions = `${length}x${width}x${height}`;
+
+              return {
+                id: row["SKU"] || "",
+                title: row["Title"] || "",
+                description: row["Product Description"] || "",
+                price: parseFloat(row["Start Price"] || "0"),
+                currency: "USD", // Default to USD if not specified
+                quantity: parseInt(row["Quantity"] || "0"),
+                images: imageUrls,
+                category: row["Type"] || "",
+                weight: parseFloat(row["Weight Major"] || "0"),
+                weightUnit: "kg", // Default to kg
+                dimensions: dimensions !== "0x0x0" ? dimensions : undefined,
+                dimensionUnit: row["Measurement System"] === "English" ? "in" : "cm"
+              };
+            });
+          resolve(products);
+        } catch (error) {
+          reject(new Error("Failed to parse eBay data: " + (error as Error).message));
+        }
       },
-      error: (error) => reject(error)
+      error: (error) => reject(new Error("Failed to parse CSV: " + error.message))
     });
   });
 }
@@ -75,23 +102,27 @@ export async function parseShopifyData(file: File): Promise<BaseProduct[]> {
     Papa.parse(file, {
       header: true,
       complete: (results) => {
-        const products = results.data.map((row: any) => ({
-          id: row["Variant SKU"] || row["ID"],
-          title: row["Title"],
-          description: row["Body (HTML)"],
-          price: parseFloat(row["Variant Price"]),
-          currency: "USD", // Shopify exports don't include currency
-          quantity: parseInt(row["Variant Inventory Qty"] || "0"),
-          images: row["Image Src"]?.split(",") || [],
-          category: row["Type"],
-          weight: parseFloat(row["Variant Weight"] || "0"),
-          weightUnit: row["Variant Weight Unit"] || "kg",
-          dimensions: row["Variant Dimensions"],
-          dimensionUnit: "cm"
-        }));
-        resolve(products);
+        try {
+          const products = results.data.map((row: any) => ({
+            id: row["Variant SKU"] || row["ID"] || "",
+            title: row["Title"] || "",
+            description: row["Body (HTML)"] || "",
+            price: parseFloat(row["Variant Price"] || "0"),
+            currency: "USD", // Shopify exports don't include currency
+            quantity: parseInt(row["Variant Inventory Qty"] || "0"),
+            images: row["Image Src"]?.split(",").filter(Boolean) || [],
+            category: row["Type"] || "",
+            weight: parseFloat(row["Variant Weight"] || "0"),
+            weightUnit: row["Variant Weight Unit"] || "kg",
+            dimensions: row["Variant Dimensions"],
+            dimensionUnit: "cm"
+          }));
+          resolve(products);
+        } catch (error) {
+          reject(new Error("Failed to parse Shopify data: " + (error as Error).message));
+        }
       },
-      error: (error) => reject(error)
+      error: (error) => reject(new Error("Failed to parse CSV: " + error.message))
     });
   });
 }
