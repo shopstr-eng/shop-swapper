@@ -83,10 +83,10 @@ export default function Home() {
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-            Product Data Converter
+            Shop Swapper
           </h1>
           <p className="text-muted-foreground">
-            Convert e-commerce product data to Nostr format
+            Convert and publish e-commerce product data to Nostr
           </p>
         </div>
 
