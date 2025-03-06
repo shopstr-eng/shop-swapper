@@ -18,6 +18,52 @@ export interface BaseProduct {
 }
 
 // Parser functions for different platforms
+export async function parseWooCommerceData(file: File): Promise<BaseProduct[]> {
+  return new Promise((resolve, reject) => {
+    Papa.parse(file, {
+      header: true,
+      complete: (results) => {
+        try {
+          const products = results.data
+            .filter((row: any) => row["ID"] || row["Name"]) // Filter out empty rows
+            .map((row: any) => {
+              // Convert lbs to kg for weight
+              const weightInLbs = parseFloat(row["Weight (lbs)"] || "0");
+              const weightInKg = weightInLbs * 0.45359237;
+
+              // Get dimensions and convert inches to cm
+              const length = parseFloat(row["Length (in)"] || "0") * 2.54;
+              const width = parseFloat(row["Width (in)"] || "0") * 2.54;
+              const height = parseFloat(row["Height (in)"] || "0") * 2.54;
+              const dimensions = length + width + height > 0 ? `${length.toFixed(1)}x${width.toFixed(1)}x${height.toFixed(1)}` : undefined;
+
+              return {
+                id: row["ID"] || "",
+                title: row["Name"] || "",
+                description: row["Description"] || row["Short description"] || "",
+                price: parseFloat(row["Regular price"] || row["Sale price"] || "0"),
+                currency: "USD", // Default to USD
+                quantity: parseInt(row["Stock"] || "0"),
+                images: (row["Images"] || "").split(",").filter(Boolean).map((url: string) => url.trim()),
+                category: row["Categories"]?.split(">").map((cat: string) => cat.trim()).join("/") || "",
+                weight: weightInKg,
+                weightUnit: "kg", // Convert to kg standard
+                dimensions,
+                dimensionUnit: "cm" // Convert to cm standard
+              };
+            })
+            .filter((product: BaseProduct) => product.title && product.id); // Filter out invalid products
+
+          resolve(products);
+        } catch (error) {
+          reject(new Error("Failed to parse WooCommerce data: " + (error as Error).message));
+        }
+      },
+      error: (error) => reject(new Error("Failed to parse CSV: " + error.message))
+    });
+  });
+}
+
 export async function parseAmazonData(file: File): Promise<BaseProduct[]> {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {

@@ -3,7 +3,7 @@ import { z } from "zod";
 // File upload schema
 export const fileUploadSchema = z.object({
   file: z.any(),
-  type: z.enum(["amazon", "ebay", "shopify"])
+  type: z.enum(["woocommerce", "ebay", "shopify"])
 });
 
 // Nostr product schema

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { fileUploadSchema } from "@shared/schema";
-import { parseAmazonData, parseEbayData, parseShopifyData } from "@/lib/parsers";
+import { parseWooCommerceData, parseEbayData, parseShopifyData } from "@/lib/parsers";
 import { convertToNostr } from "@/lib/nostr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
@@ -21,7 +21,7 @@ export default function Home() {
     resolver: zodResolver(fileUploadSchema),
     defaultValues: {
       file: undefined,
-      type: "amazon"
+      type: "woocommerce"
     }
   });
 
@@ -39,8 +39,8 @@ export default function Home() {
 
       let products;
       switch (data.type) {
-        case "amazon":
-          products = await parseAmazonData(file);
+        case "woocommerce":
+          products = await parseWooCommerceData(file);
           break;
         case "ebay":
           products = await parseEbayData(file);
@@ -113,7 +113,7 @@ export default function Home() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="amazon">Amazon</SelectItem>
+                          <SelectItem value="woocommerce">WooCommerce</SelectItem>
                           <SelectItem value="ebay">eBay</SelectItem>
                           <SelectItem value="shopify">Shopify</SelectItem>
                         </SelectContent>
@@ -179,7 +179,7 @@ export default function Home() {
           <CardContent>
             <div className="prose prose-sm max-w-none">
               <ul className="list-disc pl-4 space-y-2">
-                <li><strong>Amazon:</strong> Inventory File Format (.csv)</li>
+                <li><strong>WooCommerce:</strong> Product Export Format (.csv)</li>
                 <li><strong>eBay:</strong> Bulk Listing Format (.csv)</li>
                 <li><strong>Shopify:</strong> Product Export Format (.csv)</li>
               </ul>
