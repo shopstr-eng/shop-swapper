@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { fileUploadSchema } from "@shared/schema";
-import { parseWooCommerceData, parseEbayData, parseShopifyData } from "@/lib/parsers";
+import { parseWooCommerceData, parseEbayData, parseShopifyData, type BaseProduct } from "@/lib/parsers";
 import { convertToNostr } from "@/lib/nostr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
@@ -10,10 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Copy, FileWarning } from "lucide-react";
+import { Upload, Copy, FileWarning, ListFilter, Send } from "lucide-react";
 import JsonView from "@uiw/react-json-view";
+import { ProductCard } from "@/components/product-card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Home() {
+  const [products, setProducts] = useState<BaseProduct[]>([]);
   const [jsonOutput, setJsonOutput] = useState<any>(null);
   const { toast } = useToast();
 
@@ -37,22 +40,23 @@ export default function Home() {
         return;
       }
 
-      let products;
+      let parsedProducts;
       switch (data.type) {
         case "woocommerce":
-          products = await parseWooCommerceData(file);
+          parsedProducts = await parseWooCommerceData(file);
           break;
         case "ebay":
-          products = await parseEbayData(file);
+          parsedProducts = await parseEbayData(file);
           break;
         case "shopify":
-          products = await parseShopifyData(file);
+          parsedProducts = await parseShopifyData(file);
           break;
         default:
           throw new Error("Unsupported platform");
       }
 
-      const nostrProducts = products.map(convertToNostr);
+      setProducts(parsedProducts);
+      const nostrProducts = parsedProducts.map(convertToNostr);
       setJsonOutput(nostrProducts);
 
       toast({
@@ -68,6 +72,19 @@ export default function Home() {
     }
   };
 
+  const handleProductUpdate = (updatedProduct: BaseProduct) => {
+    const updatedProducts = products.map(p =>
+      p.id === updatedProduct.id ? updatedProduct : p
+    );
+    setProducts(updatedProducts);
+    setJsonOutput(updatedProducts.map(convertToNostr));
+
+    toast({
+      title: "Updated",
+      description: "Product details have been updated"
+    });
+  };
+
   const copyToClipboard = () => {
     if (jsonOutput) {
       navigator.clipboard.writeText(JSON.stringify(jsonOutput, null, 2));
@@ -80,7 +97,7 @@ export default function Home() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-8">
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             Shop Swapper
@@ -127,11 +144,11 @@ export default function Home() {
                   name="file"
                   render={({ field: { onChange, value, ...field } }) => (
                     <FormItem>
-                      <FormLabel>CSV/JSON File</FormLabel>
+                      <FormLabel>CSV File</FormLabel>
                       <FormControl>
                         <Input
                           type="file"
-                          accept=".csv,.json"
+                          accept=".csv"
                           onChange={(e) => onChange(e.target.files)}
                           {...field}
                         />
@@ -149,24 +166,58 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {jsonOutput && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Nostr Format Output</CardTitle>
-              <Button variant="outline" onClick={copyToClipboard}>
-                <Copy className="w-4 h-4 mr-2" />
-                Copy JSON
+        {products.length > 0 && (
+          <>
+            <div className="flex justify-center mb-6">
+              <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+                <Send className="w-5 h-5 mr-2" />
+                Publish to Nostr
               </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-[500px] overflow-auto rounded border">
-                <JsonView 
-                  value={jsonOutput}
-                  style={{ padding: '1rem' }}
-                />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            <Tabs defaultValue="cards">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="cards">
+                  <ListFilter className="w-4 h-4 mr-2" />
+                  Product Cards
+                </TabsTrigger>
+                <TabsTrigger value="json">
+                  <Copy className="w-4 h-4 mr-2" />
+                  JSON Output
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="cards" className="mt-6">
+                <div className="grid gap-6 md:grid-cols-2">
+                  {products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onUpdate={handleProductUpdate}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
+              <TabsContent value="json" className="mt-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Nostr Format Output</CardTitle>
+                    <Button variant="outline" onClick={copyToClipboard}>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy JSON
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-[500px] overflow-auto rounded border p-4">
+                      <JsonView
+                        value={jsonOutput}
+                        style={{ padding: '1rem' }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </>
         )}
 
         <Card>
