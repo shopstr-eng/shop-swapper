@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { fileUploadSchema } from "@shared/schema";
 import { parseWooCommerceData, parseEbayData, parseShopifyData, type BaseProduct } from "@/lib/parsers";
-import { convertToNostr } from "@/lib/nostr";
+import { convertToNostr, publishToNostr } from "@/lib/nostr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -169,7 +169,25 @@ export default function Home() {
         {products.length > 0 && (
           <>
             <div className="flex justify-center mb-6">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+              <Button 
+                size="lg" 
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={async () => {
+                  try {
+                    await publishToNostr(jsonOutput);
+                    toast({
+                      title: "Success",
+                      description: "Products published to Nostr successfully"
+                    });
+                  } catch (error) {
+                    toast({
+                      title: "Error",
+                      description: error instanceof Error ? error.message : "Failed to publish to Nostr",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+              >
                 <Send className="w-5 h-5 mr-2" />
                 Publish to Nostr
               </Button>

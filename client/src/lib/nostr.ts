@@ -1,5 +1,14 @@
+import { SimplePool } from 'nostr-tools/pool';
 import type { BaseProduct } from "./parsers";
 import type { NostrProduct } from "@shared/schema";
+
+const RELAYS = [
+  'wss://relay.damus.io',
+  'wss://nos.lol',
+  'wss://relay.primal.net',
+  'wss://sendit.nosflare.com',
+  'wss://relay.nostr.band'
+];
 
 export function convertToNostr(product: BaseProduct): NostrProduct {
   const nostrProduct: NostrProduct = {
@@ -38,4 +47,20 @@ export function convertToNostr(product: BaseProduct): NostrProduct {
   }
 
   return nostrProduct;
+}
+
+export async function publishToNostr(events: NostrProduct[]): Promise<void> {
+  const pool = new SimplePool();
+
+  try {
+    // Publish each event to all relays
+    await Promise.all(
+      events.map(event => 
+        Promise.any(pool.publish(RELAYS, event))
+      )
+    );
+  } finally {
+    // Clean up the pool
+    pool.close();
+  }
 }
